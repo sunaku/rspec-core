@@ -5,7 +5,18 @@ module RSpec
       # Register an at_exit hook that runs the suite.
       def self.autorun
         return if autorun_disabled? || installed_at_exit? || running_in_drb?
-        at_exit { exit run(ARGV, $stderr, $stdout).to_i unless $! }
+        at_exit do
+          #
+          # If we got here because (1) the end of the program was reached or
+          # (2) somebody called `exit`, then add to the existing exit status.
+          #
+          # Otherwise, we got here due to an unrescued exception, so don't
+          # bother running any specs and just let the program finish exiting.
+          #
+          if status = (0 unless $!) || ($!.status if $!.kind_of? SystemExit)
+            exit status | run(ARGV, $stderr, $stdout).to_i
+          end
+        end
         @installed_at_exit = true
       end
       AT_EXIT_HOOK_BACKTRACE_LINE = "#{__FILE__}:#{__LINE__ - 2}:in `autorun'"
